@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+pydantic
+numpy
+pandas
+scikit-learn
+joblib
+imbalanced-learn
+PyMuPDF
+Pillow
+pytesseract
+python-multipart
+
