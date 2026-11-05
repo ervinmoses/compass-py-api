@@ -180,6 +180,30 @@ async def train_endpoint(payload: TrainingData):
             model, scaler = train_svm(X_train_bal, y_train_bal)
         elif payload.model_code == 'knn':
             model, scaler = train_knn(X_train_bal, y_train_bal)
+        elif payload.model_code == 'auto':
+            # Auto-Pilot: Evaluate all models and choose the top performer
+            candidates = [
+                ('rf', train_random_forest(X_train_bal, y_train_bal)),
+                ('dt', train_decision_tree(X_train_bal, y_train_bal)),
+                ('knn', train_knn(X_train_bal, y_train_bal)),
+                ('svm', train_svm(X_train_bal, y_train_bal))
+            ]
+            best_cand_model = None
+            best_cand_scaler = None
+            best_cand_acc = -1
+            best_cand_code = 'rf'
+            for cand_code, (cand_m, cand_sc) in candidates:
+                cand_eval = cand_sc.transform(X_test) if cand_sc is not None else X_test
+                cand_pred = cand_m.predict(cand_eval)
+                cand_acc = accuracy_score(y_test, cand_pred) * 100
+                if cand_acc > best_cand_acc:
+                    best_cand_acc = cand_acc
+                    best_cand_model = cand_m
+                    best_cand_scaler = cand_sc
+                    best_cand_code = cand_code
+            model = best_cand_model
+            scaler = best_cand_scaler
+            payload.model_code = best_cand_code
         else:
             raise HTTPException(status_code=400, detail="Invalid model code")
 
