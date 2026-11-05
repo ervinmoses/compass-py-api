@@ -129,7 +129,7 @@ def get_feature_weights(model, model_code, X_test, y_test, scaler=None, step_log
         try:
             from sklearn.inspection import permutation_importance
             X_eval = scaler.transform(X_test) if scaler is not None else X_test
-            result = permutation_importance(model, X_eval, y_test, n_repeats=30, random_state=42, n_jobs=-1)
+            result = permutation_importance(model, X_eval, y_test, n_repeats=5, random_state=42, n_jobs=-1)
             importances = result.importances_mean
             importances = np.clip(importances, 0, None)
             total = np.sum(importances)
@@ -204,20 +204,21 @@ async def train_endpoint(payload: TrainingData):
         
         X_test_display = scaler.transform(X_test_arr) if scaler is not None else X_test_arr
 
+        if hasattr(model, 'predict_proba'):
+            probs_matrix = model.predict_proba(X_test_display)
+            max_probs = np.max(probs_matrix, axis=1) * 100
+        else:
+            max_probs = np.full(sample_size, 100.0)
+
         predictions_sample = []
         for i in range(sample_size):
-            prob_val = 100.0
-            if hasattr(model, 'predict_proba'):
-                probs = model.predict_proba(X_test_display[i:i+1])[0]
-                prob_val = round(float(max(probs)) * 100, 1)
-
             predictions_sample.append({
                 "student_id": str(id_test_arr[i]),
                 "index": int(i + 1),
                 "actual": TARGET_MAP.get(int(y_test_arr[i]), "Unknown"),
                 "predicted": TARGET_MAP.get(int(y_pred_arr[i]), "Unknown"),
                 "correct": bool(y_test_arr[i] == y_pred_arr[i]),
-                "confidence": prob_val
+                "confidence": round(float(max_probs[i]), 1)
             })
 
         weights = get_feature_weights(model, payload.model_code, X_test, y_test, scaler=scaler, step_log=step_log)
